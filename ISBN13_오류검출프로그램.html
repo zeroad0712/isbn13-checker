@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ISBN-13 오류 검출 프로그램</title>
+<style>
+  *{box-sizing:border-box}
+  body{font-family:"Malgun Gothic",Arial,sans-serif;background:#f3f6fb;color:#1f2937;margin:0;padding:24px}
+  .wrap{max-width:760px;margin:auto;background:#fff;border-radius:18px;padding:28px;box-shadow:0 8px 30px #1d355710}
+  h1{margin:0 0 8px;color:#173b68;font-size:clamp(24px,4vw,34px)}
+  .sub{color:#64748b;margin:0 0 24px}
+  label{display:block;font-weight:700;margin-bottom:8px}
+  input{width:100%;font-size:20px;padding:13px;border:1px solid #cbd5e1;border-radius:10px}
+  .buttons{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+  button{border:0;border-radius:10px;padding:12px 18px;font-size:16px;font-weight:700;cursor:pointer}
+  .primary{background:#1e5a96;color:white}.secondary{background:#e8eef5;color:#173b68}
+  .result{margin-top:18px;border-radius:12px;padding:16px;background:#f1f5f9}
+  .status{font-size:20px;font-weight:800;margin-bottom:8px}
+  .ok{color:#15803d}.bad{color:#b91c1c}.neutral{color:#475569}
+  pre{white-space:pre-wrap;word-break:break-word;font-family:inherit;line-height:1.7;margin:0}
+  .note{font-size:13px;color:#64748b;margin-top:18px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ISBN-13 오류 검출 프로그램</h1>
+  <p class="sub">ISBN 숫자 13자리를 입력하고 체크번호 공식으로 오류 여부를 확인해 보세요.</p>
+  <label for="isbn">ISBN-13 입력 (하이픈은 입력해도 됩니다)</label>
+  <input id="isbn" type="text" value="979-11-93267-00-4" autocomplete="off" maxlength="20">
+  <div class="buttons">
+    <button class="primary" id="check">오류 검사</button>
+    <button class="secondary" id="sampleError">오류 ISBN 예시</button>
+    <button class="secondary" id="clear">초기화</button>
+  </div>
+  <div class="result" aria-live="polite">
+    <div id="status" class="status neutral">검사 결과: 아직 검사하지 않았습니다.</div>
+    <pre id="details">ISBN을 입력한 뒤 '오류 검사'를 눌러 주세요.</pre>
+  </div>
+  <p class="note">참고: 체크번호 검사는 ISBN-13의 숫자 배열이 공식에 맞는지 확인합니다. 모든 종류의 입력 오류를 완벽히 검출하는 것은 아닙니다.</p>
+</div>
+<script>
+const isbnInput = document.getElementById('isbn');
+const statusEl = document.getElementById('status');
+const detailsEl = document.getElementById('details');
+
+function checkISBN() {
+  const raw = isbnInput.value.trim();
+  const digits = raw.replace(/[\s-]/g, '');
+
+  if (!/^\d+$/.test(digits)) {
+    statusEl.className = 'status bad';
+    statusEl.textContent = '검사 결과: 입력 오류';
+    detailsEl.textContent = 'ISBN은 숫자 13자리로 입력해 주세요. 하이픈(-)은 넣어도 됩니다.';
+    return;
+  }
+  if (digits.length !== 13) {
+    statusEl.className = 'status bad';
+    statusEl.textContent = '검사 결과: 입력 오류';
+    detailsEl.textContent = `입력한 숫자는 ${digits.length}자리입니다. ISBN-13은 13자리여야 합니다.`;
+    return;
+  }
+
+  const nums = [...digits].map(Number);
+  const weights = Array.from({length:12}, (_,i) => i % 2 === 0 ? 1 : 3);
+  const products = nums.slice(0,12).map((n,i) => n * weights[i]);
+  const sum = products.reduce((a,b) => a+b, 0);
+  const remainder = sum % 10;
+  const calculated = (10 - remainder) % 10;
+  const entered = nums[12];
+  const isValid = calculated === entered;
+
+  statusEl.className = 'status ' + (isValid ? 'ok' : 'bad');
+  statusEl.textContent = isValid ? '검사 결과: 정상 ISBN-13' : '검사 결과: 오류 ISBN-13';
+
+  detailsEl.textContent =
+    '계산 과정\n' +
+    '앞의 12자리 숫자에 1과 3을 번갈아 곱합니다.\n\n' +
+    '숫자:       ' + nums.slice(0,12).join('  ') + '\n' +
+    '곱하는 수:  ' + weights.join('  ') + '\n' +
+    '계산값:     ' + products.join('  ') + '\n\n' +
+    '계산값의 합: ' + sum + '\n' +
+    '10으로 나눈 나머지: ' + remainder + '\n' +
+    '계산된 체크번호: ' + calculated + '\n' +
+    '입력된 체크번호: ' + entered + '\n\n' +
+    (isValid ? '판정: 계산된 체크번호와 입력된 체크번호가 같습니다.' :
+               '판정: 계산된 체크번호와 입력된 체크번호가 다릅니다.');
+}
+
+document.getElementById('check').addEventListener('click', checkISBN);
+document.getElementById('sampleError').addEventListener('click', () => {
+  isbnInput.value = '979-11-93267-00-5';
+  checkISBN();
+});
+document.getElementById('clear').addEventListener('click', () => {
+  isbnInput.value = '';
+  statusEl.className = 'status neutral';
+  statusEl.textContent = '검사 결과: 아직 검사하지 않았습니다.';
+  detailsEl.textContent = 'ISBN을 입력한 뒤 오류 검사를 눌러 주세요.';
+});
+isbnInput.addEventListener('keydown', e => { if (e.key === 'Enter') checkISBN(); });
+</script>
+</body>
+</html>
